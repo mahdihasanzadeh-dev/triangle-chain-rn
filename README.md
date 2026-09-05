@@ -1,56 +1,114 @@
-# Welcome to your Expo app 👋
+# Triangle Chain -- React Native / Expo
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A native port of the web prototype: same game logic, now rendered with real
+native 3D (expo-gl + Three.js) and a physical-feeling drag-to-stretch rubber
+band gesture (react-native-gesture-handler + expo-haptics + baked sound
+effects).
 
-## Get started
+## Honest disclaimer
 
-1. Install dependencies
+This was written and reviewed carefully, but **not run** -- there's no
+Expo/React Native toolchain or physical device available in the environment
+that built it. The pure game logic (`src/game/logic.js`) is a straight copy
+of the already-tested web version, so that part should just work. The native
+glue -- `expo-gl` context setup, gesture composition, haptics, sound loading
+-- is written against current, verified API shapes, but it hasn't touched a
+real device yet. Expect to do one round of "run it, see what breaks, tell
+me" the same way we did for the 3D web rewrite.
 
-   ```bash
-   npm install
-   ```
+One thing worth knowing up front: **Three.js in expo-gl does not run well in
+the iOS Simulator or Android Emulator** -- test on a real phone.
 
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## 1. Create the project
 
 ```bash
-npm run reset-project
+npx create-expo-app triangle-chain-rn
+cd triangle-chain-rn
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## 2. Install dependencies
 
-### Other setup steps
+```bash
+npx expo install expo-gl expo-three three expo-av expo-haptics \
+  react-native-gesture-handler react-native-safe-area-context
+```
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+`expo install` (rather than plain `npm install`) picks the exact versions
+that match whatever Expo SDK you land on -- this avoids me hardcoding
+version numbers that may already be stale by the time you read this.
 
-## Learn more
+If anything looks mismatched later, `npx expo install --fix` will
+re-resolve everything against your installed SDK.
 
-To learn more about developing your project with Expo, look at the following resources:
+## 3. Copy in these files
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+Copy this project's contents into your new project, **overwriting**
+`App.js`, `babel.config.js`, `app.json`, and `package.json`'s `dependencies`
+block if you want to keep your freshly-resolved version numbers instead of
+mine, and add:
 
-## Join the community
+```
+src/
+assets/sfx/
+metro.config.js
+```
 
-Join our community of developers creating universal apps.
+## 4. Run it
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+```bash
+npx expo start
+```
+
+Scan the QR code with Expo Go on a physical device (or run
+`npx expo run:ios` / `npx expo run:android` for a full native build once
+you're past quick iteration).
+
+## What's the same as the web version
+
+- All game logic -- board geometry, move validation, AI, scoring, win
+  condition -- is `src/game/logic.js`, ported unchanged.
+- The rubber-band interaction model: press a peg, drag to elastically
+  stretch a spring-damped band, snap onto a legal peg or retract if you let
+  go elsewhere.
+- Orbit-drag on empty board space, pinch to zoom.
+
+## What's different / native-specific
+
+- **Sound**: React Native has no Web Audio oscillator API, so the four cues
+  (tick / commit / claim / retract) are baked WAV files in `assets/sfx/`,
+  generated to match the same pitches/envelopes as the web version's
+  synthesized tones.
+- **Haptics**: real `expo-haptics` impacts instead of the web version's
+  best-effort `navigator.vibrate` -- a light tap when the band catches a
+  peg, a success notification when a move commits, a light tap on retract.
+- **Gestures**: `react-native-gesture-handler`'s `Gesture.Pan` +
+  `Gesture.Pinch` composed together, instead of raw DOM pointer events.
+  Two-finger pinch is handled by RNGH's built-in scale tracking rather than
+  the manual two-pointer-distance math the web version needed.
+- **Rendering**: `expo-gl` + `expo-three`'s `Renderer` wraps a real native
+  WebGL context; the render loop calls `gl.endFrameEXP()` each frame, which
+  is expo-gl-specific.
+
+## Things to specifically check on a real device
+
+- **Gesture edge cases**: what happens if a second finger touches down
+  mid-stretch (should cancel/retract the band), and what happens releasing
+  one finger of a two-finger pinch (should resume single-finger orbit
+  smoothly). These are handled in code but are exactly the kind of thing
+  that needs a thumb on real glass to confirm feels right.
+- **Spring tuning**: the stretch/snap/release stiffness and damping values
+  in `Board3D.js` were carried over from the web version's constants. Native
+  touch latency is usually lower than a browser's, so these may want
+  retuning once you can feel it.
+- **Performance on Large boards**: the "Large" board size generates ~190
+  individual triangle meshes plus ~150 pegs and hit-spheres. This was fine
+  in WebGL on desktop/mobile browsers; native GPUs vary more, so if a
+  mid-range Android device chugs on Large, the fix is batching the static
+  faces into one merged `BufferGeometry` instead of ~190 separate meshes
+  (straightforward to do, just didn't want to add that complexity before
+  confirming it's actually needed).
+- **Sound latency**: `expo-av`'s `replayAsync()` on a shared `Sound`
+  instance can have a small delay on some Android devices compared to iOS.
+  If the tick sound feels laggy against the haptic during a fast drag,
+  that's the usual suspect -- the fix is a small pool of pre-loaded
+  `Sound` instances per effect instead of one shared instance.
