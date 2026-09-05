@@ -1,24 +1,39 @@
-import React, { useState, useMemo, useEffect, useCallback } from "react";
-import { View, StatusBar, Pressable, Text, StyleSheet } from "react-native";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Pressable, StatusBar, StyleSheet, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaProvider,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
-import { buildBoard, initGame, tryMove, computeAIMove, computeValidTargets } from "./src/game/logic";
-import { useSynth } from "./src/hooks/useSynth";
-import { COLORS, PALETTE } from "./src/theme";
-import SetupScreen from "./src/screens/SetupScreen";
-import GameScreen from "./src/screens/GameScreen";
 import GuideModal from "./src/components/GuideModal";
+import {
+  buildBoard,
+  computeAIMove,
+  computeValidTargets,
+  initGame,
+  tryMove,
+} from "./src/game/logic";
+import { useSynth } from "./src/hooks/useSynth";
+import GameScreen from "./src/screens/GameScreen";
+import SetupScreen from "./src/screens/SetupScreen";
+import { COLORS, PALETTE } from "./src/theme";
 
 function Toolbar({ soundOn, setSoundOn, onShowGuide }) {
   const insets = useSafeAreaInsets();
   return (
     <View style={[styles.toolbar, { top: insets.top + 8, right: 12 }]}>
       <Pressable onPress={() => setSoundOn((s) => !s)} style={styles.iconBtn}>
-        <Text style={styles.iconText}>{soundOn ? "\u{1F50A}" : "\u{1F507}"}</Text>
+        <Text style={styles.iconText}>
+          {soundOn ? "\u{1F50A}" : "\u{1F507}"}
+        </Text>
       </Pressable>
       <Pressable onPress={onShowGuide} style={styles.iconBtn}>
-        <Text style={[styles.iconText, { color: COLORS.gold, fontWeight: "700" }]}>?</Text>
+        <Text
+          style={[styles.iconText, { color: COLORS.gold, fontWeight: "700" }]}
+        >
+          ?
+        </Text>
       </Pressable>
     </View>
   );
@@ -74,7 +89,7 @@ function Root() {
       else commit();
       return true;
     },
-    [board, game, claim, commit]
+    [board, game, claim, commit],
   );
 
   // AI turn
@@ -89,14 +104,19 @@ function Root() {
     return () => clearTimeout(t);
   }, [phase, game, board, applyMove]);
 
-  const canInteract = !!(board && game && !game.gameOver && game.players[game.currentPlayer].type === "human");
+  const canInteract = !!(
+    board &&
+    game &&
+    !game.gameOver &&
+    game.players[game.currentPlayer].type === "human"
+  );
 
   const handleDragStart = useCallback(
     (key) => {
       if (!canInteract) return;
       setSelectedStart(key);
     },
-    [canInteract]
+    [canInteract],
   );
 
   const handleDragEnd = useCallback(
@@ -106,7 +126,7 @@ function Root() {
       setSelectedStart(null);
       setHoverVertex(null);
     },
-    [applyMove, retract]
+    [applyMove, retract],
   );
 
   const validTargets = useMemo(() => {
@@ -125,7 +145,11 @@ function Root() {
   return (
     <View style={styles.app}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.bg0} />
-      <Toolbar soundOn={soundOn} setSoundOn={setSoundOn} onShowGuide={() => setShowGuide(true)} />
+      <Toolbar
+        soundOn={soundOn}
+        setSoundOn={setSoundOn}
+        onShowGuide={() => setShowGuide(true)}
+      />
 
       {phase === "setup" && (
         <SetupScreen

@@ -14,10 +14,7 @@
       "package": "com.yourcompany.trianglechain",
       "adaptiveIcon": {
         "backgroundColor": "#100b07"
-      },
-      "permissions": [
-        "android.permission.MODIFY_AUDIO_SETTINGS"
-      ]
+      }
     },
     "plugins": [
       [
@@ -26,11 +23,6 @@
           "microphonePermission": false
         }
       ]
-    ],
-    "extra": {
-      "eas": {
-        "projectId": "9a7b941c-5cbf-4d41-adc7-15290371390f"
-      }
-    }
+    ]
   }
 }
