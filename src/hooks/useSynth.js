@@ -1,11 +1,11 @@
 import { useEffect, useRef, useCallback } from "react";
-import { Audio } from "expo-av";
+import { Asset } from "expo-asset";
+import { createAudioPlayer, setAudioModeAsync } from "expo-audio";
 
-// Web Audio's oscillator API doesn't exist on native, so these are short
-// baked WAV files (see assets/sfx) tuned to match the pitches/envelopes used
-// in the web prototype: a light "tick" while a stretch snaps toward a legal
-// peg, a "commit" thunk when a band locks in, a soft "retract" blip when a
-// stretch is let go with no target, and a 3-note ascending "claim" chime.
+// expo-av is deprecated; expo-audio is its replacement. One gotcha worth
+// knowing: locally require()'d audio assets can silently fail to play in
+// release builds unless resolved to a real file:// URI via expo-asset
+// first -- Asset.loadAsync() below is what makes that reliable.
 const SOURCES = {
   tick: require("../../assets/sfx/tick.wav"),
   commit: require("../../assets/sfx/commit.wav"),
@@ -14,7 +14,7 @@ const SOURCES = {
 };
 
 export function useSynth(enabled) {
-  const soundsRef = useRef({});
+  const playersRef = useRef({});
   const enabledRef = useRef(enabled);
   enabledRef.current = enabled;
 
@@ -23,23 +23,31 @@ export function useSynth(enabled) {
 
     (async () => {
       try {
-        await Audio.setAudioModeAsync({
-          playsInSilentModeIOS: true,
-          staysActiveInBackground: false,
-          shouldDuckAndroid: true,
+        await setAudioModeAsync({
+          playsInSilentMode: true,
+          allowsRecording: false,
+          shouldPlayInBackground: false,
         });
         const entries = await Promise.all(
           Object.entries(SOURCES).map(async ([key, src]) => {
-            const { sound } = await Audio.Sound.createAsync(src);
-            return [key, sound];
+            const [asset] = await Asset.loadAsync(src);
+            const uri = asset.localUri || asset.uri;
+            const player = createAudioPlayer(uri);
+            return [key, player];
           })
         );
         if (mounted) {
-          entries.forEach(([key, sound]) => {
-            soundsRef.current[key] = sound;
+          entries.forEach(([key, player]) => {
+            playersRef.current[key] = player;
           });
         } else {
-          entries.forEach(([, sound]) => sound.unloadAsync().catch(() => {}));
+          entries.forEach(([, player]) => {
+            try {
+              player.remove();
+            } catch (e) {
+              /* already gone */
+            }
+          });
         }
       } catch (e) {
         // Sound is a nice-to-have -- the game is fully playable without it.
@@ -48,16 +56,30 @@ export function useSynth(enabled) {
 
     return () => {
       mounted = false;
-      Object.values(soundsRef.current).forEach((s) => s.unloadAsync().catch(() => {}));
-      soundsRef.current = {};
+      Object.values(playersRef.current).forEach((p) => {
+        try {
+          p.remove();
+        } catch (e) {
+          /* already gone */
+        }
+      });
+      playersRef.current = {};
     };
   }, []);
 
   const play = useCallback((key) => {
     if (!enabledRef.current) return;
-    const sound = soundsRef.current[key];
-    if (!sound) return;
-    sound.replayAsync().catch(() => {});
+    const player = playersRef.current[key];
+    if (!player) return;
+    try {
+      // expo-audio, unlike expo-av, doesn't auto-reset position when a clip
+      // finishes -- seekTo(0) before every play() is the documented way to
+      // get "replay from the start" behavior for a short one-shot sound.
+      player.seekTo(0);
+      player.play();
+    } catch (e) {
+      /* best effort */
+    }
   }, []);
 
   return {

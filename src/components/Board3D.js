@@ -1,10 +1,10 @@
-import React, { useRef, useMemo, useCallback, useEffect } from "react";
-import { View } from "react-native";
 import { GLView } from "expo-gl";
-import { Renderer } from "expo-three";
-import * as THREE from "three";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import * as Haptics from "expo-haptics";
+import { Renderer } from "expo-three";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import { View } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import * as THREE from "three";
 import { useLatestRef } from "../hooks/useLatestRef";
 
 const PEG_Y = 0.16;
@@ -20,14 +20,19 @@ function orientCylinder(mesh, p1, p2) {
   const len = dir.length() || 0.0001;
   mesh.position.copy(p1).addScaledVector(dir, 0.5);
   mesh.scale.set(1, len, 1);
-  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
+  mesh.quaternion.setFromUnitVectors(
+    new THREE.Vector3(0, 1, 0),
+    dir.clone().normalize(),
+  );
 }
 
 const hapticLight = () => {
   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
 };
 const hapticSuccess = () => {
-  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
+    () => {},
+  );
 };
 
 export default function Board3D({
@@ -57,7 +62,11 @@ export default function Board3D({
     hideAt: 0,
   });
   const gestureModeRef = useRef(null); // null | 'orbit' | 'stretch'
-  const stretchRef = useRef({ startKey: null, targetKey: null, finished: true });
+  const stretchRef = useRef({
+    startKey: null,
+    targetKey: null,
+    finished: true,
+  });
   const prevTranslationRef = useRef({ x: 0, y: 0 });
   const orbitDraggingRef = useRef(false);
   const pinchStartRadiusRef = useRef(6);
@@ -86,7 +95,7 @@ export default function Board3D({
       const hits = s.raycaster.intersectObjects(s.hitMeshes);
       return hits.length > 0 ? hits[0].object.userData.vertexKey : null;
     },
-    [ndcOf]
+    [ndcOf],
   );
 
   const updateCameraNow = useCallback(() => {
@@ -96,7 +105,7 @@ export default function Board3D({
     s.camera.position.set(
       o.radius * Math.sin(o.polar) * Math.sin(o.azimuth),
       o.radius * Math.cos(o.polar),
-      o.radius * Math.sin(o.polar) * Math.cos(o.azimuth)
+      o.radius * Math.sin(o.polar) * Math.cos(o.azimuth),
     );
     s.camera.lookAt(0, 0, 0);
   }, []);
@@ -124,7 +133,7 @@ export default function Board3D({
       s.dragMesh.visible = true;
       onDragStartRef.current && onDragStartRef.current(key);
     },
-    [bandColorRef, onDragStartRef]
+    [bandColorRef, onDragStartRef],
   );
 
   const updateStretch = useCallback(
@@ -135,8 +144,12 @@ export default function Board3D({
       const st = stretchRef.current;
       s.raycaster.setFromCamera(ndcOf(x, y), s.camera);
       const valid = validTargetsRef.current;
-      const candidates = valid ? s.hitMeshes.filter((m) => valid.has(m.userData.vertexKey)) : [];
-      const hits = candidates.length ? s.raycaster.intersectObjects(candidates) : [];
+      const candidates = valid
+        ? s.hitMeshes.filter((m) => valid.has(m.userData.vertexKey))
+        : [];
+      const hits = candidates.length
+        ? s.raycaster.intersectObjects(candidates)
+        : [];
       if (hits.length > 0) {
         const key = hits[0].object.userData.vertexKey;
         if (key !== st.targetKey) {
@@ -160,7 +173,7 @@ export default function Board3D({
         spring.mode = "follow";
       }
     },
-    [ndcOf, validTargetsRef, onHoverVertexRef, onSnapTickRef]
+    [ndcOf, validTargetsRef, onHoverVertexRef, onSnapTickRef],
   );
 
   const finishStretch = useCallback(() => {
@@ -234,13 +247,22 @@ export default function Board3D({
         pinchStartRadiusRef.current = orbitRef.current.radius;
       })
       .onUpdate((e) => {
-        orbitRef.current.radius = clampRadius(pinchStartRadiusRef.current / e.scale);
+        orbitRef.current.radius = clampRadius(
+          pinchStartRadiusRef.current / e.scale,
+        );
         updateCameraNow();
       });
 
     return Gesture.Simultaneous(pan, pinch);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pickAny, beginStretch, updateStretch, finishStretch, updateCameraNow, clampRadius]);
+  }, [
+    pickAny,
+    beginStretch,
+    updateStretch,
+    finishStretch,
+    updateCameraNow,
+    clampRadius,
+  ]);
 
   // ---- GL context: build the static scene once per board ----
   const onContextCreate = useCallback(
@@ -257,7 +279,7 @@ export default function Board3D({
         42,
         gl.drawingBufferWidth / gl.drawingBufferHeight,
         0.1,
-        100
+        100,
       );
 
       scene.add(new THREE.AmbientLight(0xfff2df, 0.7));
@@ -273,9 +295,15 @@ export default function Board3D({
       board.faces.forEach((f) => {
         const pts = f.verts.map((k) => board.vertices.get(k));
         const positions = new Float32Array([
-          pts[0].x, 0, pts[0].y,
-          pts[1].x, 0, pts[1].y,
-          pts[2].x, 0, pts[2].y,
+          pts[0].x,
+          0,
+          pts[0].y,
+          pts[1].x,
+          0,
+          pts[1].y,
+          pts[2].x,
+          0,
+          pts[2].y,
         ]);
         const geo = new THREE.BufferGeometry();
         geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
@@ -283,13 +311,19 @@ export default function Board3D({
         const nrm = geo.getAttribute("normal");
         if (nrm.getY(0) < 0) {
           const p = geo.getAttribute("position");
-          const tx = p.getX(1), ty = p.getY(1), tz = p.getZ(1);
+          const tx = p.getX(1),
+            ty = p.getY(1),
+            tz = p.getZ(1);
           p.setXYZ(1, p.getX(2), p.getY(2), p.getZ(2));
           p.setXYZ(2, tx, ty, tz);
           p.needsUpdate = true;
           geo.computeVertexNormals();
         }
-        const mat = new THREE.MeshStandardMaterial({ color: WOOD_COLOR, roughness: 0.92, metalness: 0.04 });
+        const mat = new THREE.MeshStandardMaterial({
+          color: WOOD_COLOR,
+          roughness: 0.92,
+          metalness: 0.04,
+        });
         const mesh = new THREE.Mesh(geo, mat);
         scene.add(mesh);
         faceMeshes.set(f.id, mesh);
@@ -301,13 +335,21 @@ export default function Board3D({
       const pegMeshes = new Map();
       const hitMeshes = [];
       board.vertices.forEach((v) => {
-        const mat = new THREE.MeshStandardMaterial({ color: BRASS_COLOR, roughness: 0.45, metalness: 0.35 });
+        const mat = new THREE.MeshStandardMaterial({
+          color: BRASS_COLOR,
+          roughness: 0.45,
+          metalness: 0.35,
+        });
         const mesh = new THREE.Mesh(pegGeo, mat);
         mesh.position.set(v.x, PEG_Y / 2, v.y);
         scene.add(mesh);
         pegMeshes.set(v.key, mesh);
 
-        const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+        const hitMat = new THREE.MeshBasicMaterial({
+          transparent: true,
+          opacity: 0,
+          depthWrite: false,
+        });
         const hit = new THREE.Mesh(hitGeo, hitMat);
         hit.position.set(v.x, PEG_Y, v.y);
         hit.userData.vertexKey = v.key;
@@ -379,7 +421,8 @@ export default function Board3D({
               mesh.userData.popUntil = null;
             } else {
               const k = 1 - remain / 400;
-              const bounce = 1 + 0.22 * Math.sin(Math.min(1, k * 1.6) * Math.PI) * (1 - k);
+              const bounce =
+                1 + 0.22 * Math.sin(Math.min(1, k * 1.6) * Math.PI) * (1 - k);
               mesh.scale.set(bounce, 1, bounce);
             }
           }
@@ -388,11 +431,21 @@ export default function Board3D({
         const spring = springRef.current;
         if (s.dragMesh.visible) {
           const releasing = spring.mode === "release";
-          const stiffness = releasing ? 170 : spring.mode === "snap" ? 320 : 260;
+          const stiffness = releasing
+            ? 170
+            : spring.mode === "snap"
+              ? 320
+              : 260;
           const damping = releasing ? 9 : spring.mode === "snap" ? 16 : 22;
-          const ax = (spring.target.x - spring.pos.x) * stiffness - spring.vel.x * damping;
-          const ay = (spring.target.y - spring.pos.y) * stiffness - spring.vel.y * damping;
-          const az = (spring.target.z - spring.pos.z) * stiffness - spring.vel.z * damping;
+          const ax =
+            (spring.target.x - spring.pos.x) * stiffness -
+            spring.vel.x * damping;
+          const ay =
+            (spring.target.y - spring.pos.y) * stiffness -
+            spring.vel.y * damping;
+          const az =
+            (spring.target.z - spring.pos.z) * stiffness -
+            spring.vel.z * damping;
           spring.vel.x += ax * dt;
           spring.vel.y += ay * dt;
           spring.vel.z += az * dt;
@@ -419,7 +472,7 @@ export default function Board3D({
       // stash the raf id on the scene state so layout/unmount can cancel it
       sceneStateRef.current.raf = raf;
     },
-    [boardRef, updateCameraNow]
+    [boardRef, updateCameraNow],
   );
 
   const onLayout = useCallback((e) => {
@@ -475,9 +528,17 @@ export default function Board3D({
     }
     while (s.bandMeshes.length < game.bands.length) {
       const b = game.bands[s.bandMeshes.length];
-      const mat = new THREE.MeshStandardMaterial({ color: new THREE.Color(b.color), roughness: 0.4, metalness: 0.12 });
+      const mat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(b.color),
+        roughness: 0.4,
+        metalness: 0.12,
+      });
       const mesh = new THREE.Mesh(s.bandGeo, mat);
-      orientCylinder(mesh, new THREE.Vector3(b.x1, PEG_Y, b.y1), new THREE.Vector3(b.x2, PEG_Y, b.y2));
+      orientCylinder(
+        mesh,
+        new THREE.Vector3(b.x1, PEG_Y, b.y1),
+        new THREE.Vector3(b.x2, PEG_Y, b.y2),
+      );
       s.scene.add(mesh);
       s.bandMeshes.push(mesh);
     }
@@ -518,7 +579,16 @@ export default function Board3D({
 
   return (
     <GestureDetector gesture={composedGesture}>
-      <View onLayout={onLayout} style={{ width: "100%", aspectRatio: 1, maxHeight: 560, borderRadius: 14, overflow: "hidden" }}>
+      <View
+        onLayout={onLayout}
+        style={{
+          width: "100%",
+          aspectRatio: 1,
+          maxHeight: 560,
+          borderRadius: 14,
+          overflow: "hidden",
+        }}
+      >
         <GLView style={{ flex: 1 }} onContextCreate={onContextCreate} />
       </View>
     </GestureDetector>
