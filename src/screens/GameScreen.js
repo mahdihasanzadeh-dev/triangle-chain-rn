@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Board3D from "../components/Board3D";
+import Board2D from "../components/Board2D";
 import { COLORS } from "../theme";
 
 export default function GameScreen({
@@ -90,7 +90,7 @@ export default function GameScreen({
       )}
 
       <View style={[styles.boardWrap, { borderColor: activeColor + "55" }]}>
-        <Board3D
+        <Board2D
           key={sessionId}
           board={board}
           game={game}
